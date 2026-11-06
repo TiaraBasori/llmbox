@@ -14,9 +14,41 @@ import 'package:fl_pi_llm_ui/fl_pi_llm_ui.dart';
 
 Future<void> main() async {
   await _runInZone(() async {
-    await _initApp();
+    // DIAG BUILD: surface startup failures on screen instead of freezing on
+    // the splash with the error only in a log file. Times out after 20s.
+    final init = _initApp();
+    try {
+      await init.timeout(const Duration(seconds: 20));
+    } catch (e, s) {
+      runApp(_DiagErrorApp('$e\n\n$s'));
+      return;
+    }
     runApp(const MyApp());
   });
+}
+
+class _DiagErrorApp extends StatelessWidget {
+  final String text;
+  const _DiagErrorApp(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              'Startup failed:\n$text',
+              style: const TextStyle(color: Colors.redAccent, fontSize: 13, fontFamily: 'monospace'),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 Future<void> _runInZone(Future<void> Function() body) async {
