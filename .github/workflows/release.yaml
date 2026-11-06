@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -24,15 +25,10 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: '17'
-      - name: Fetch secrets
-        # Through env, not interpolated into the script; -f fails on an HTTP error
-        # instead of saving the error page as the key.
-        env:
-          BASIC_AUTH: ${{ secrets.BASIC_AUTH }}
-          URL_PREFIX: ${{ secrets.URL_PREFIX }}
-        run: |
-          curl -fsS -u "$BASIC_AUTH" -o android/app/llmbox.p12 "${URL_PREFIX}llmbox.p12"
-          curl -fsS -u "$BASIC_AUTH" -o android/key.properties "${URL_PREFIX}key.properties"
+      - name: Self-sign key (fork build; upstream signing secrets unavailable)
+        run: keytool -genkeypair -keyalg EC -groupname secp384r1 -keystore android/app/llmbox.p12 -storetype PKCS12 -alias llmbox -storepass forkbuild -dname "CN=LLMBox fork build" -validity 10000
+      - name: Write key.properties
+        run: printf 'storeFile=llmbox.p12\nstorePassword=forkbuild\nkeyAlias=llmbox\nkeyPassword=forkbuild\n' > android/key.properties
       - name: Build
         run: dart run fl_build -p android
       - name: Create Release
